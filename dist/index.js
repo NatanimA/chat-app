@@ -19,23 +19,36 @@ const type_graphql_1 = require("type-graphql");
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const chat_1 = require("./resolvers/chat");
+const http_1 = __importDefault(require("http"));
 dotenv_1.default.config();
 const main = () => __awaiter(void 0, void 0, void 0, function* () {
     const app = (0, express_1.default)();
+    const httpServer = http_1.default.createServer(app);
     app.use((0, cors_1.default)({ origin: '*', credentials: true }));
     const apolloServer = new apollo_server_express_1.ApolloServer({
         schema: yield (0, type_graphql_1.buildSchema)({
             resolvers: [chat_1.ChatResolver],
             validate: false
-        })
+        }),
+        subscriptions: {
+            path: "/subscriptions",
+            onConnect: () => {
+                console.log("Clients connected for subscriptions");
+            },
+            onDisconnect: () => {
+                console.log("Client disconnected from subscriptions");
+            }
+        }
     });
     yield apolloServer.start();
     apolloServer.applyMiddleware({
         app,
         cors: false
     });
-    app.listen(process.env.PORT, () => {
+    apolloServer.installSubscriptionHandlers(httpServer);
+    httpServer.listen(process.env.PORT, () => {
         console.log(`Server ready at http://localhost:${process.env.PORT}${apolloServer.graphqlPath}`);
+        console.log(`Server ready at ws://localhost:${process.env.PORT}${apolloServer.subscriptionsPath}`);
     });
 });
 main().catch((err) => {
